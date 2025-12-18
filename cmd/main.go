@@ -26,18 +26,62 @@ func main() {
 	// 	fmt.Println(v)
 	// }
 
-	multiply := func(val, multiplier int) int {
-		return val * multiplier
+	// This is the Stream Processing Example
+
+	// multiply := func(val, multiplier int) int {
+	// 	return val * multiplier
+	// }
+
+	// add := func(val, additive int) int {
+	// 	return val + additive
+	// }
+
+	// ints := []int{1, 2, 3, 4}
+
+	// for _, v := range ints {
+	// 	fmt.Println(add(multiply(v, 2), 1))
+	// }
+
+	// Stream, but with Channels Example
+	generator := func(done <-chan any, integers ...int) <- chan int {
+		intStream := make(chan int)
+
+		go func() {
+			defer close(intStream)
+			for _, i := range integers {
+				select {
+				case <-done:
+				return
+				case intStream <- i:
+				}
+			}
+		}()
+
+		return intStream
 	}
 
-	add := func(val, additive int) int {
-		return val + additive
+	multiply := func(done <-chan any, intStream <-chan int, multiplier int) <- chan int{
+		multipliedStream := make(chan int)
+		go func() {
+			defer close(multipliedStream)
+			for i := range intStream {
+				select {
+				case <-done:
+				return
+				case multipliedStream <- i*multiplier:
+				}
+			}
+		}()
+		return multipliedStream
 	}
 
-	ints := []int{1, 2, 3, 4}
+	done := make (chan any)
+	defer close(done)
 
-	for _, v := range ints {
-		fmt.Println(add(multiply(v, 2), 1))
+	intStream := generator(done, 1, 2, 3, 4)
+	pipeline := multiply(done, intStream, 2)
+
+	for v := range pipeline {
+		fmt.Println(v)
 	}
-
 }
